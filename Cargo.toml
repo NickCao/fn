@@ -1,0 +1,10 @@
+cargo-features = ["strip"]
+
+[workspace]
+members = [
+  "meow",
+]
+
+[profile.release]
+lto = true
+strip = true
