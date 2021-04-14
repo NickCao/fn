@@ -18,25 +18,36 @@
           inherit system;
           overlays = [ fenix.overlay ];
         };
-        toolchain = pkgs.rust-nightly.default;
-        nlib = naersk.lib."${system}".override {
-          rustc = toolchain.rustc;
-          cargo = toolchain.cargo;
-        };
+        nlib = with pkgs.rust-nightly.default;
+          naersk.lib.${system}.override {
+            rustc = rustc;
+            cargo = cargo;
+          };
+        buildCrate =
+          { name
+          , nativeBuildInputs ? [ ]
+          , buildInputs ? [ ]
+          }: nlib.buildPackage {
+            inherit nativeBuildInputs buildInputs;
+            pname = name;
+            root = ./.;
+            cargoBuildOptions = opts: opts ++ [ "-p" name ];
+            cargoTestOptions = opts: opts ++ [ "-p" name ];
+          };
       in
-      rec {
+      with pkgs; rec {
         devShell = pkgs.mkShell { inputsFrom = [ defaultPackage ]; };
-        defaultPackage = packages.fn;
-        packages.fn = with pkgs;nlib.buildPackage {
-          pname = "fn";
-          root = ./.;
-          buildInputs = [ openssl ];
-          nativeBuildInputs = [ pkg-config ];
-        };
-        packages.image.meow = pkgs.dockerTools.buildLayeredImage {
-          name = "meow";
-          contents = [ pkgs.cacert ];
-          config.Entrypoint = [ "${defaultPackage}/bin/meow" ];
+        defaultPackage = packages.meow;
+
+        packages = {
+          meow = buildCrate {
+            name = "meow";
+          };
+          image.meow = dockerTools.buildLayeredImage {
+            name = "meow";
+            contents = [ cacert ];
+            config.Entrypoint = [ "${packages.meow}/bin/meow" ];
+          };
         };
       }
     );
