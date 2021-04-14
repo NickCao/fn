@@ -8,7 +8,7 @@ lazy_static::lazy_static! {
 pub fn mnemonic(len: usize) -> String {
     WORDLIST
         .choose_multiple(&mut rand::thread_rng(), len)
-        .map(|&x| x)
+        .copied()
         .collect::<Vec<&str>>()
         .join("-")
 }
