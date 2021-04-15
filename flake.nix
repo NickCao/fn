@@ -43,7 +43,7 @@
           meow = buildCrate {
             name = "meow";
           };
-          image.meow = dockerTools.buildLayeredImage {
+          image.meow = dockerTools.streamLayeredImage {
             name = "meow";
             contents = [ cacert ];
             config.Entrypoint = [ "${packages.meow}/bin/meow" ];
