@@ -34,6 +34,9 @@
             cargoBuildOptions = opts: opts ++ [ "-p" name ];
             cargoTestOptions = opts: opts ++ [ "-p" name ];
           };
+        pushImage = image: ''
+          ${pkgs.skopeo}/bin/skopeo copy docker-archive:${image} docker://${image.imageName}
+        '';
       in
       with pkgs; rec {
         devShell = pkgs.mkShell { inputsFrom = [ defaultPackage ]; };
@@ -43,11 +46,16 @@
           meow = buildCrate {
             name = "meow";
           };
-          image.meow = dockerTools.streamLayeredImage {
-            name = "meow";
-            contents = [ cacert ];
-            config.Entrypoint = [ "${packages.meow}/bin/meow" ];
+          image = {
+            meow = dockerTools.buildLayeredImage {
+              name = "quay.io/nickcao/meow";
+              contents = [ cacert ];
+              config.Entrypoint = [ "${packages.meow}/bin/meow" ];
+            };
           };
+          push = writeShellScript "push" ''
+            ${pushImage packages.image.meow}
+          '';
         };
       }
     );
