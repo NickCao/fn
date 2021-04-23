@@ -54,6 +54,7 @@
             };
           };
           push = writeShellScriptBin "push" ''
+            mkdir -p /var/tmp
             ${pushImage packages.image.meow}
           '';
         };
