@@ -35,7 +35,7 @@
             cargoTestOptions = opts: opts ++ [ "-p" name ];
           };
         pushImage = image: ''
-          ${pkgs.skopeo}/bin/skopeo copy docker-archive:${image} docker://${image.imageName}
+          ${pkgs.skopeo}/bin/skopeo copy --insecure-policy docker-archive:${image} docker://${image.imageName}
         '';
       in
       with pkgs; rec {

@@ -5,4 +5,4 @@ build:
     - echo "sandbox = false" >> /etc/nix/nix.conf
     - echo "max-jobs = auto" >> /etc/nix/nix.conf
     - nix run nixpkgs#skopeo -- login quay.io -u nickcao -p $QUAY_PASSWD
-    - nix run .#push
+    - nix run -vL .#push
