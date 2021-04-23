@@ -53,7 +53,7 @@
               config.Entrypoint = [ "${packages.meow}/bin/meow" ];
             };
           };
-          push = writeShellScript "push" ''
+          push = writeShellScriptBin "push" ''
             ${pushImage packages.image.meow}
           '';
         };
