@@ -2,27 +2,30 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
     flake-utils.url = "github:numtide/flake-utils";
-    fenix = {
-      url = "github:nix-community/fenix";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
     };
     naersk = {
       url = "github:nmattia/naersk";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-  outputs = { self, nixpkgs, flake-utils, fenix, naersk }:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay, naersk }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ fenix.overlay ];
+          overlays = [ rust-overlay.overlay ];
         };
-        nlib = with pkgs.rust-nightly.default;
-          naersk.lib.${system}.override {
-            rustc = rustc;
-            cargo = cargo;
-          };
+        toolchain = pkgs.rust-bin.nightly.latest.default.override {
+          targets = [ "wasm32-wasi" ];
+        };
+        nlib = naersk.lib.${system}.override {
+          rustc = toolchain;
+          cargo = toolchain;
+        };
         buildCrate =
           { name
           , nativeBuildInputs ? [ ]
