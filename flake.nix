@@ -46,7 +46,7 @@
               vendorSha256 = "sha256-br1k0TLegGnDkUk8p8cybjHkLAo/oJcvNGpG/ndbhLA=";
               passthru = {
                 image = final.dockerTools.buildLayeredImage {
-                  name = "gitlab.com/nickcao/meow";
+                  name = "gitlab.com/nickcao/woff";
                   contents = [ final.cacert ];
                   config.Entrypoint = [ "${final.woff}/bin/woff" ];
                 };
