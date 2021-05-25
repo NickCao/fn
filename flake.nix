@@ -17,7 +17,7 @@
       (system:
         let pkgs = import nixpkgs { inherit system; overlays = [ self.overlay rust-overlay.overlay naersk.overlay ]; }; in
         rec {
-          packages = { inherit (pkgs) meow; };
+          packages = { inherit (pkgs) meow woff; };
           checks = packages // pkgs.lib.mapAttrs' (k: v: pkgs.lib.nameValuePair "${k}-image" v.image) packages;
           devShell = pkgs.mkShell { inputsFrom = builtins.attrValues packages; };
         }
@@ -39,6 +39,19 @@
               };
             };
           };
+          woff = final.buildGoModule
+            {
+              name = "woff";
+              src = ./woff;
+              vendorSha256 = "sha256-br1k0TLegGnDkUk8p8cybjHkLAo/oJcvNGpG/ndbhLA=";
+              passthru = {
+                image = final.dockerTools.buildLayeredImage {
+                  name = "gitlab.com/nickcao/meow";
+                  contents = [ final.cacert ];
+                  config.Entrypoint = [ "${final.woff}/bin/woff" ];
+                };
+              };
+            };
         };
     };
 }
