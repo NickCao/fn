@@ -15,15 +15,11 @@
   outputs = { self, nixpkgs, flake-utils, rust-overlay, naersk }:
     flake-utils.lib.eachDefaultSystem
       (system:
-        let
-          pkgs = import nixpkgs {
-            inherit system;
-            overlays = [ self.overlay naersk.overlay rust-overlay.overlay ];
-          };
-        in
+        let pkgs = import nixpkgs { inherit system; overlays = [ self.overlay rust-overlay.overlay naersk.overlay ]; }; in
         rec {
-          packages = pkgs.nickcao.fn;
-          checks = packages;
+          packages = { inherit (pkgs) meow; };
+          checks = packages // pkgs.lib.mapAttrs' (k: v: pkgs.lib.nameValuePair "${k}-image" v.image) packages;
+          devShell = pkgs.mkShell { inputsFrom = builtins.attrValues packages; };
         }
       ) //
     {
@@ -33,14 +29,14 @@
           naersk = final.naersk.override { cargo = toolchain; rustc = toolchain; };
         in
         {
-          nickcao.fn = rec {
-            meow = naersk.buildPackage {
-              src = ./meow;
-            };
-            meow-image = final.dockerTools.buildLayeredImage {
-              name = "gitlab.com/nickcao/meow";
-              contents = [ final.cacert ];
-              config.Entrypoint = [ "${meow}/bin/meow" ];
+          meow = naersk.buildPackage {
+            src = ./meow;
+            passthru = {
+              image = final.dockerTools.buildLayeredImage {
+                name = "gitlab.com/nickcao/meow";
+                contents = [ final.cacert ];
+                config.Entrypoint = [ "${final.meow}/bin/meow" ];
+              };
             };
           };
         };
