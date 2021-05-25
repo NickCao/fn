@@ -1,8 +1,0 @@
-image: docker.nix-community.org/nixpkgs/nix-flakes
-build:
-  script:
-    - echo "experimental-features = nix-command flakes ca-references" > /etc/nix/nix.conf
-    - echo "sandbox = false" >> /etc/nix/nix.conf
-    - echo "max-jobs = auto" >> /etc/nix/nix.conf
-    - nix run nixpkgs#skopeo -- login quay.io -u nickcao -p $QUAY_PASSWD
-    - nix run -vL .#push

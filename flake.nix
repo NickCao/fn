@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
+    nixpkgs.url = "github:NickCao/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
@@ -13,54 +13,36 @@
     };
   };
   outputs = { self, nixpkgs, flake-utils, rust-overlay, naersk }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ rust-overlay.overlay ];
-        };
-        toolchain = pkgs.rust-bin.nightly.latest.default.override {
-          targets = [ "wasm32-wasi" ];
-        };
-        nlib = naersk.lib.${system}.override {
-          rustc = toolchain;
-          cargo = toolchain;
-        };
-        buildCrate =
-          { name
-          , nativeBuildInputs ? [ ]
-          , buildInputs ? [ ]
-          }: nlib.buildPackage {
-            inherit nativeBuildInputs buildInputs;
-            pname = name;
-            root = ./.;
-            cargoBuildOptions = opts: opts ++ [ "-p" name ];
-            cargoTestOptions = opts: opts ++ [ "-p" name ];
+    flake-utils.lib.eachDefaultSystem
+      (system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ self.overlay naersk.overlay rust-overlay.overlay ];
           };
-        pushImage = image: ''
-          ${pkgs.skopeo}/bin/skopeo copy --insecure-policy docker-archive:${image} docker://${image.imageName}
-        '';
-      in
-      with pkgs; rec {
-        devShell = pkgs.mkShell { inputsFrom = [ defaultPackage ]; };
-        defaultPackage = packages.meow;
-
-        packages = {
-          meow = buildCrate {
-            name = "meow";
-          };
-          image = {
-            meow = dockerTools.buildLayeredImage {
-              name = "quay.io/nickcao/meow";
-              contents = [ cacert ];
-              config.Entrypoint = [ "${packages.meow}/bin/meow" ];
+        in
+        rec {
+          packages = pkgs.nickcao.fn;
+          checks = packages;
+        }
+      ) //
+    {
+      overlay = final: prev:
+        let
+          toolchain = final.rust-bin.nightly.latest.default;
+          naersk = final.naersk.override { cargo = toolchain; rustc = toolchain; };
+        in
+        {
+          nickcao.fn = rec {
+            meow = naersk.buildPackage {
+              src = ./meow;
+            };
+            meow-image = final.dockerTools.buildLayeredImage {
+              name = "gitlab.com/nickcao/meow";
+              contents = [ final.cacert ];
+              config.Entrypoint = [ "${meow}/bin/meow" ];
             };
           };
-          push = writeShellScriptBin "push" ''
-            mkdir -p /var/tmp
-            ${pushImage packages.image.meow}
-          '';
         };
-      }
-    );
+    };
 }
