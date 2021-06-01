@@ -7,15 +7,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
     };
-    naersk = {
-      url = "github:nmattia/naersk";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
-  outputs = { self, nixpkgs, flake-utils, rust-overlay, naersk }:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem
       (system:
-        let pkgs = import nixpkgs { inherit system; overlays = [ self.overlay rust-overlay.overlay naersk.overlay ]; }; in
+        let pkgs = import nixpkgs { inherit system; overlays = [ self.overlay rust-overlay.overlay ]; }; in
         rec {
           packages = { inherit (pkgs) meow woff; };
           checks = packages // pkgs.lib.mapAttrs' (k: v: pkgs.lib.nameValuePair "${k}-image" v.image) packages;
@@ -26,11 +22,15 @@
       overlay = final: prev:
         let
           toolchain = final.rust-bin.nightly.latest.default;
-          naersk = final.naersk.override { cargo = toolchain; rustc = toolchain; };
+          platform = final.makeRustPlatform { cargo = toolchain; rustc = toolchain; };
         in
         {
-          meow = naersk.buildPackage {
+          meow = platform.buildRustPackage {
+            name = "meow";
             src = ./meow;
+            cargoLock = {
+              lockFile = ./meow/Cargo.lock;
+            };
             passthru = {
               image = final.dockerTools.buildLayeredImage {
                 name = "gitlab.com/nickcao/meow";
