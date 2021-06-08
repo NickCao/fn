@@ -92,10 +92,11 @@ async fn _main() -> Result<()> {
     let base_url = Url::parse(&env::var("BASE_URL")?)?;
     let endpoint = env::var("S3_ENDPOINT")?;
     let bucket = env::var("S3_BUCKET")?;
+    let region = env::var("S3_REGION")?;
     let access_key = env::var("S3_ACCESS_KEY_ID")?;
     let secret_key = env::var("S3_SECRET_ACCESS_KEY")?;
     let region = Region::Custom {
-        name: "".to_string(),
+        name: region,
         endpoint,
     };
     let creds = StaticProvider::new_minimal(access_key, secret_key);

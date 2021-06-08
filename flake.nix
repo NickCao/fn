@@ -28,6 +28,8 @@
           meow = platform.buildRustPackage {
             name = "meow";
             src = ./meow;
+            nativeBuildInputs = [ final.pkg-config ];
+            buildInputs = [ final.openssl ];
             cargoLock = {
               lockFile = ./meow/Cargo.lock;
             };
