@@ -13,7 +13,7 @@
       (system:
         let pkgs = import nixpkgs { inherit system; overlays = [ self.overlay rust-overlay.overlay ]; }; in
         rec {
-          packages = { inherit (pkgs) meow woff; };
+          packages = { inherit (pkgs) meow woff bark; };
           checks = packages // pkgs.lib.mapAttrs' (k: v: pkgs.lib.nameValuePair "${k}-image" v.image) packages;
           devShell = pkgs.mkShell { inputsFrom = builtins.attrValues packages; };
         }
@@ -51,6 +51,19 @@
                   name = "gitlab.com/nickcao/woff";
                   contents = [ final.cacert ];
                   config.Entrypoint = [ "${final.woff}/bin/woff" ];
+                };
+              };
+            };
+          bark = final.buildGoModule
+            {
+              name = "bark";
+              src = ./bark;
+              vendorSha256 = "sha256-+4gPLQKbrUFp55rjuf30w0GSqk2baxMYsdkjPYCAKic=";
+              passthru = {
+                image = final.dockerTools.buildLayeredImage {
+                  name = "gitlab.com/nickcao/bark";
+                  contents = [ final.cacert ];
+                  config.Entrypoint = [ "${final.bark}/bin/bark" ];
                 };
               };
             };
