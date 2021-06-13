@@ -54,19 +54,22 @@
                 };
               };
             };
-          bark = final.buildGoModule
-            {
-              name = "bark";
-              src = ./bark;
-              vendorSha256 = "sha256-+4gPLQKbrUFp55rjuf30w0GSqk2baxMYsdkjPYCAKic=";
-              passthru = {
-                image = final.dockerTools.buildLayeredImage {
-                  name = "gitlab.com/nickcao/bark";
-                  contents = [ final.cacert ];
-                  config.Entrypoint = [ "${final.bark}/bin/bark" ];
-                };
+          bark = platform.buildRustPackage {
+            name = "bark";
+            src = ./bark;
+            nativeBuildInputs = [ final.pkg-config ];
+            buildInputs = [ final.openssl ];
+            cargoLock = {
+              lockFile = ./bark/Cargo.lock;
+            };
+            passthru = {
+              image = final.dockerTools.buildLayeredImage {
+                name = "gitlab.com/nickcao/bark";
+                contents = [ final.cacert ];
+                config.Entrypoint = [ "${final.bark}/bin/bark" ];
               };
             };
+          };
         };
     };
 }
