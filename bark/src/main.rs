@@ -23,8 +23,11 @@ struct Config {
 
 #[derive(FromForm)]
 struct SMS<'a> {
+    #[field(name = "From")]
     from: &'a str,
+    #[field(name = "To")]
     to: &'a str,
+    #[field(name = "Body")]
     body: &'a str,
 }
 
