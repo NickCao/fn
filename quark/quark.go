@@ -1,7 +1,10 @@
 package main
 
 import (
-	"flag"
+	"encoding/base32"
+	"fmt"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -9,51 +12,67 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"io"
-	"log"
+	"net/http"
 	"os"
 )
 
-var repoStr = flag.String("repo", "", "image repo")
-var tag = flag.String("tag", "latest", "image tag")
-var pull = flag.Bool("pull", false, "pull instead of push")
-var user = flag.String("user", "", "username")
-var pass = flag.String("pass", "", "password")
+func MustLookupEnv(key string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	} else {
+		panic(fmt.Sprintf("environment variable %s is required", key))
+	}
+}
 
 func main() {
-	flag.Parse()
-	repo, err := name.NewRepository(*repoStr)
+	repo, err := name.NewRepository(MustLookupEnv("QUARK_REPO"))
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-	auth := remote.WithAuth(&authn.Basic{Username: *user, Password: *pass})
+	auth := remote.WithAuth(&authn.Basic{Username: MustLookupEnv("QUARK_USER"), Password: MustLookupEnv("QUARK_PASSWD")})
+	encoding := base32.StdEncoding.WithPadding(base32.NoPadding)
 
-	if !*pull {
-		layer := stream.NewLayer(os.Stdin)
-		err = remote.WriteLayer(repo, layer, auth)
+	router := chi.NewRouter()
+	router.Use(middleware.Logger)
+	router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+		img, err := remote.Image(repo.Tag(encoding.EncodeToString([]byte(r.URL.Path))))
 		if err != nil {
-			log.Fatal(err)
-		}
-		image, err := mutate.AppendLayers(empty.Image, layer)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = remote.Write(repo.Tag(*tag), image, auth)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		img, err := remote.Image(repo.Tag(*tag))
-		if err != nil {
-			log.Fatal(err)
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
 		}
 		layers, err := img.Layers()
 		if err != nil {
-			log.Fatal(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(layers) != 1 {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		data, err := layers[0].Uncompressed()
 		if err != nil {
-			log.Fatal(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
-		io.Copy(os.Stdout, data)
-	}
+		io.Copy(w, data)
+	})
+	router.Put("/*", func(w http.ResponseWriter, r *http.Request) {
+		layer := stream.NewLayer(r.Body)
+		err := remote.WriteLayer(repo, layer, auth)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		image, err := mutate.AppendLayers(empty.Image, layer)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		err = remote.Write(repo.Tag(encoding.EncodeToString([]byte(r.URL.Path))), image, auth)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	})
+	http.ListenAndServe(":3000", router)
 }

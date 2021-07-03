@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NickCao/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NickCao/nixpkgs/nixos-unstable-small";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
@@ -13,7 +13,7 @@
       (system:
         let pkgs = import nixpkgs { inherit system; overlays = [ self.overlay rust-overlay.overlay ]; }; in
         rec {
-          packages = { inherit (pkgs) meow woff bark; };
+          packages = { inherit (pkgs) meow woff bark quark; };
           checks = packages // pkgs.lib.mapAttrs' (k: v: pkgs.lib.nameValuePair "${k}-image" v.image) packages;
           devShell = pkgs.mkShell { inputsFrom = builtins.attrValues packages; };
         }
@@ -70,6 +70,19 @@
               };
             };
           };
+          quark = final.buildGoModule
+            {
+              name = "quark";
+              src = ./quark;
+              vendorSha256 = "sha256-2tZS03xt/IrjBKDSfUK6WT+l2I6Lyj6IYH2cuzhqwwY=";
+              passthru = {
+                image = final.dockerTools.buildLayeredImage {
+                  name = "gitlab.com/nickcao/quark";
+                  contents = [ final.cacert ];
+                  config.Entrypoint = [ "${final.quark}/bin/quark" ];
+                };
+              };
+            };
         };
     };
 }
