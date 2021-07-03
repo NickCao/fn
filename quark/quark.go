@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/base32"
+	"encoding/base64"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -30,7 +30,7 @@ func main() {
 		panic(err)
 	}
 	auth := remote.WithAuth(&authn.Basic{Username: MustLookupEnv("QUARK_USER"), Password: MustLookupEnv("QUARK_PASSWD")})
-	encoding := base32.StdEncoding.WithPadding(base32.NoPadding)
+	encoding := base64.NewEncoding("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.").WithPadding(base64.NoPadding)
 
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
