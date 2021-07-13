@@ -1,8 +1,13 @@
 package main
 
 import (
-	"encoding/base64"
+	"crypto/sha256"
+	"encoding/base32"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -11,9 +16,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
-	"io"
-	"net/http"
-	"os"
 )
 
 func MustLookupEnv(key string) string {
@@ -24,18 +26,22 @@ func MustLookupEnv(key string) string {
 	}
 }
 
+func EncodeTag(buf []byte) string {
+	hash := sha256.Sum256(buf)
+	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])
+}
+
 func main() {
 	repo, err := name.NewRepository(MustLookupEnv("QUARK_REPO"))
 	if err != nil {
 		panic(err)
 	}
 	auth := remote.WithAuth(&authn.Basic{Username: MustLookupEnv("QUARK_USER"), Password: MustLookupEnv("QUARK_PASSWD")})
-	encoding := base64.NewEncoding("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.").WithPadding(base64.NoPadding)
 
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
 	router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		img, err := remote.Image(repo.Tag(encoding.EncodeToString([]byte(r.URL.Path))))
+		img, err := remote.Image(repo.Tag(EncodeTag([]byte(r.URL.Path))))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -68,7 +74,7 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = remote.Write(repo.Tag(encoding.EncodeToString([]byte(r.URL.Path))), image, auth)
+		err = remote.Write(repo.Tag(EncodeTag([]byte(r.URL.Path))), image, auth)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
