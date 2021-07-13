@@ -31,6 +31,9 @@ func EncodeTag(buf []byte) string {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])
 }
 
+const respOK = "<_/>"
+const respNotFound = "<Error><Code>NoSuchKey</Code></Error>"
+
 func main() {
 	repo, err := name.NewRepository(MustLookupEnv("QUARK_REPO"))
 	if err != nil {
@@ -43,42 +46,51 @@ func main() {
 	router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 		img, err := remote.Image(repo.Tag(EncodeTag([]byte(r.URL.Path))))
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
+			http.Error(w, respNotFound, http.StatusNotFound)
 			return
 		}
 		layers, err := img.Layers()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, respOK, http.StatusInternalServerError)
 			return
 		}
 		if len(layers) != 1 {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, respOK, http.StatusInternalServerError)
 			return
 		}
 		data, err := layers[0].Uncompressed()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, respOK, http.StatusInternalServerError)
 			return
 		}
 		io.Copy(w, data)
+	})
+	router.Head("/*", func(w http.ResponseWriter, r *http.Request) {
+		_, err := remote.Image(repo.Tag(EncodeTag([]byte(r.URL.Path))))
+		if err != nil {
+			http.Error(w, respNotFound, http.StatusNotFound)
+			return
+		}
+		http.Error(w, respOK, http.StatusOK)
 	})
 	router.Put("/*", func(w http.ResponseWriter, r *http.Request) {
 		layer := stream.NewLayer(r.Body)
 		err := remote.WriteLayer(repo, layer, auth)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, respOK, http.StatusInternalServerError)
 			return
 		}
 		image, err := mutate.AppendLayers(empty.Image, layer)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, respOK, http.StatusInternalServerError)
 			return
 		}
 		err = remote.Write(repo.Tag(EncodeTag([]byte(r.URL.Path))), image, auth)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, respOK, http.StatusInternalServerError)
 			return
 		}
+		http.Error(w, respOK, http.StatusOK)
 	})
 	http.ListenAndServe(":3000", router)
 }
