@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -12,6 +13,8 @@ import (
 	"strconv"
 )
 
+var listen = flag.String("l", "127.0.0.1:8080", "listen address")
+
 var woff chi.Router
 
 func MustLookupEnv(key string) string {
@@ -22,22 +25,13 @@ func MustLookupEnv(key string) string {
 	}
 }
 
-func Serve(fn http.HandlerFunc) {
-	router := chi.NewRouter()
-	router.Use(middleware.RequestID)
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-	router.Mount("/", fn)
-	if err := http.ListenAndServe(":8080", router); err != nil {
-		panic(err)
-	}
-}
-
-func init() {
+func main() {
+	flag.Parse()
 	stripe.Key = MustLookupEnv("STRIPE_SECRET_KEY")
 	returnURL := MustLookupEnv("RETURN_URL")
 
 	woff = chi.NewRouter()
+	woff.Use(middleware.Logger)
 	woff.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		amount, err := strconv.ParseFloat(r.URL.Query().Get("amount"), 64)
 		if err != nil {
@@ -72,8 +66,6 @@ func init() {
 
 		http.Redirect(w, r, pi.NextAction.AlipayHandleRedirect.URL, http.StatusFound)
 	})
-}
 
-func main() {
-	Serve(woff.ServeHTTP)
+	http.ListenAndServe(*listen, woff)
 }
