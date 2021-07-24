@@ -88,7 +88,7 @@ struct AppConfig {
 }
 
 async fn _main() -> Result<()> {
-    let port = env::var("PORT").unwrap_or_else(|_| String::from("8080"));
+    let listen = env::var("LISTEN").unwrap_or_else(|_| String::from("127.0.0.1:8080"));
     let base_url = Url::parse(&env::var("BASE_URL")?)?;
     let endpoint = env::var("S3_ENDPOINT")?;
     let bucket = env::var("S3_BUCKET")?;
@@ -114,7 +114,7 @@ async fn _main() -> Result<()> {
             .service(paste)
             .service(retrieve)
     })
-    .bind(format!("[::]:{}", port))?
+    .bind(listen)?
     .run()
     .await?;
     Ok(())
