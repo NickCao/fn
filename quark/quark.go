@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base32"
+	"flag"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -18,6 +19,8 @@ import (
 	"os"
 	"strings"
 )
+
+var listen = flag.String("l", "127.0.0.1:8080", "listen address")
 
 func MustLookupEnv(key string) string {
 	if value, ok := os.LookupEnv(key); ok {
@@ -36,6 +39,7 @@ const respOk = "<_/>"
 const respErr = "<Error><Code>NoSuchKey</Code></Error>"
 
 func main() {
+	flag.Parse()
 	repo, err := name.NewRepository(MustLookupEnv("QUARK_REPO"))
 	if err != nil {
 		panic(err)
@@ -112,5 +116,5 @@ func main() {
 		}
 		http.Error(w, respOk, http.StatusOK)
 	})
-	http.ListenAndServe(":3000", router)
+	http.ListenAndServe(*listen, router)
 }
