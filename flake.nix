@@ -14,7 +14,7 @@
         let pkgs = import nixpkgs { inherit system; overlays = [ self.overlay rust-overlay.overlay ]; }; in
         rec {
           packages = { inherit (pkgs) meow woff bark quark; };
-          checks = packages // pkgs.lib.mapAttrs' (k: v: pkgs.lib.nameValuePair "${k}-image" v.image) packages;
+          checks = packages;
           devShell = pkgs.mkShell { inputsFrom = builtins.attrValues packages; };
         }
       ) //
@@ -33,27 +33,12 @@
             cargoLock = {
               lockFile = ./meow/Cargo.lock;
             };
-            passthru = {
-              image = final.dockerTools.buildLayeredImage {
-                name = "gitlab.com/nickcao/meow";
-                contents = [ final.cacert ];
-                config.Entrypoint = [ "${final.meow}/bin/meow" ];
-              };
-            };
           };
-          woff = final.buildGoModule
-            {
-              name = "woff";
-              src = ./woff;
-              vendorSha256 = "sha256-br1k0TLegGnDkUk8p8cybjHkLAo/oJcvNGpG/ndbhLA=";
-              passthru = {
-                image = final.dockerTools.buildLayeredImage {
-                  name = "gitlab.com/nickcao/woff";
-                  contents = [ final.cacert ];
-                  config.Entrypoint = [ "${final.woff}/bin/woff" ];
-                };
-              };
-            };
+          woff = final.buildGoModule {
+            name = "woff";
+            src = ./woff;
+            vendorSha256 = "sha256-br1k0TLegGnDkUk8p8cybjHkLAo/oJcvNGpG/ndbhLA=";
+          };
           bark = platform.buildRustPackage {
             name = "bark";
             src = ./bark;
@@ -62,27 +47,12 @@
             cargoLock = {
               lockFile = ./bark/Cargo.lock;
             };
-            passthru = {
-              image = final.dockerTools.buildLayeredImage {
-                name = "gitlab.com/nickcao/bark";
-                contents = [ final.cacert ];
-                config.Entrypoint = [ "${final.bark}/bin/bark" ];
-              };
-            };
           };
-          quark = final.buildGoModule
-            {
-              name = "quark";
-              src = ./quark;
-              vendorSha256 = "sha256-2tZS03xt/IrjBKDSfUK6WT+l2I6Lyj6IYH2cuzhqwwY=";
-              passthru = {
-                image = final.dockerTools.buildLayeredImage {
-                  name = "gitlab.com/nickcao/quark";
-                  contents = [ final.cacert ];
-                  config.Entrypoint = [ "${final.quark}/bin/quark" ];
-                };
-              };
-            };
+          quark = final.buildGoModule {
+            name = "quark";
+            src = ./quark;
+            vendorSha256 = "sha256-2tZS03xt/IrjBKDSfUK6WT+l2I6Lyj6IYH2cuzhqwwY=";
+          };
         };
     };
 }
