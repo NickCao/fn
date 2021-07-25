@@ -37,7 +37,7 @@
           woff = final.buildGoModule {
             name = "woff";
             src = ./woff;
-            vendorSha256 = "sha256-br1k0TLegGnDkUk8p8cybjHkLAo/oJcvNGpG/ndbhLA=";
+            vendorSha256 = "sha256-JndbBs8D1kMvOnHPRLk2nmVd9KNH964BGcDUu+49anU=";
           };
           bark = platform.buildRustPackage {
             name = "bark";
