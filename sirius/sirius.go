@@ -14,7 +14,7 @@ import (
 )
 
 var port = flag.Uint("p", 1, "vsock port to listen on")
-var nix = flag.String("n", "nix-store", "path to nix-store command")
+var nix = flag.String("n", "nix-daemon", "path to nix-daemon command")
 
 func main() {
 	flag.Parse()
@@ -84,13 +84,13 @@ func handleChannelRequest(chr ssh.NewChannel, wg *sync.WaitGroup) error {
 			}
 			continue
 		}
-		if len(req.Payload) < 4 || !bytes.Equal(req.Payload[4:], []byte("nix-store --serve --write")) {
+		if len(req.Payload) < 4 || !bytes.Equal(req.Payload[4:], []byte("nix-daemon --stdio")) {
 			if req.WantReply {
 				req.Reply(false, nil)
 			}
 			continue
 		}
-		cmd := exec.Command(*nix, "--serve", "--write")
+		cmd := exec.Command(*nix, "--stdio")
 		cmd.Stdin = ch
 		cmd.Stdout = ch
 		cmd.Stderr = ch.Stderr()
