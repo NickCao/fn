@@ -23,21 +23,27 @@ func main() {
 	for {
 		conn, err := lis.Accept()
 		if err != nil {
-			log.Println(err)
+			log.Printf("failed to accept connection: %s\n", err)
 			continue
 		}
-		log.Printf("connection from: %s\n", conn.RemoteAddr().String())
-		go handleConn(conn)
+		log.Printf("accepted connection from: %s\n", conn.RemoteAddr())
+		go func(c net.Conn) {
+			err := handleConn(c)
+			if err != nil {
+				log.Printf("nix-daemon invocation error: %s\n", err)
+			}
+		}(conn)
 	}
 }
 
 func handleConn(conn net.Conn) error {
+	defer conn.Close()
 	return (&exec.Cmd{
 		Path:   *nix,
-		Args:   []string{"--stdio"},
+		Args:   []string{"nix-daemon", "--stdio"},
 		Env:    []string{},
 		Stdin:  conn,
 		Stdout: conn,
 		Stderr: os.Stderr,
-	}).Start()
+	}).Run()
 }
