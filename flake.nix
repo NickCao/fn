@@ -56,7 +56,7 @@
           sirius = final.buildGoModule {
             name = "sirius";
             src = ./sirius;
-            vendorSha256 = "sha256-x1BwqcA/CkRfzVmEDB8wnLPkK4A33qMn36zadZKzFGI=";
+            vendorSha256 = "sha256-ppouYHXyJe1FSzS7D22sDA3Z8101ROvaWy0ymfoJ23s=";
           };
         };
     };

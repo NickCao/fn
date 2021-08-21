@@ -2,20 +2,27 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"flag"
-	"fmt"
+	"github.com/firecracker-microvm/firecracker-go-sdk"
+	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
 	"io"
 	"log"
 	"net"
+	"os"
 	"sync"
 )
 
-var sock = flag.String("s", "vsock.sock", "path to unix socket")
-var port = flag.Uint("p", 1, "port of vsock to connect")
+var port = flag.Uint("p", 1024, "port of vsock to connect")
 var addr = flag.String("l", "127.0.0.1:2022", "address to listen on")
+var kernel = flag.String("k", "", "path to kernel image")
+var kargs = flag.String("a", "", "kernel args")
+var rootfs = flag.String("r", "", "path to rootfs")
+var fc = flag.String("f", "", "path to firecracker binary")
 
 func main() {
 	flag.Parse()
@@ -44,11 +51,14 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go handleConn(conn, config)
+		go func() {
+			log.Println(handleConn(conn, config))
+		}()
 	}
 }
 
 func handleConn(conn net.Conn, config *ssh.ServerConfig) error {
+	log.Println("new connection")
 	sconn, chrs, greqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
 		return err
@@ -67,6 +77,7 @@ func handleConn(conn net.Conn, config *ssh.ServerConfig) error {
 }
 
 func handleChannelRequest(chr ssh.NewChannel, wg *sync.WaitGroup) error {
+	log.Println("new channel")
 	defer wg.Done()
 
 	if chr.ChannelType() != "session" {
@@ -91,20 +102,53 @@ func handleChannelRequest(chr ssh.NewChannel, wg *sync.WaitGroup) error {
 			}
 			continue
 		}
-		uconn, err := net.Dial("unix", *sock)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		base := "/tmp/" + uuid.NewString()
+		t := true
+		r := "rootfs"
+		var c1024 int64 = 1024
+		var c1 int64 = 1
+		machine, err := firecracker.NewMachine(ctx, firecracker.Config{
+			SocketPath:      base + ".ctrl",
+			LogLevel:        "Info",
+			KernelImagePath: *kernel,
+			KernelArgs:      *kargs,
+			Drives: []models.Drive{{
+				DriveID:      &r,
+				IsReadOnly:   &t,
+				IsRootDevice: &t,
+				PathOnHost:   rootfs,
+			}},
+			VsockDevices: []firecracker.VsockDevice{{
+				ID:   "nix",
+				Path: base + ".vsock",
+				CID:  3,
+			}},
+			MachineCfg: models.MachineConfiguration{
+				HtEnabled:  &t,
+				MemSizeMib: &c1024,
+				VcpuCount:  &c1,
+			},
+			VMID: uuid.NewString(),
+		}, firecracker.WithProcessRunner(firecracker.VMCommandBuilder{}.
+			WithBin(*fc).
+			WithSocketPath(base+".ctrl").
+			WithStdout(os.Stdout).
+			Build(ctx)))
+		if err != nil {
+			return err
+		}
+		err = machine.Start(ctx)
+		if err != nil {
+			return err
+		}
+		uconn, err := VSockDial(ctx, base+".vsock", uint32(*port))
 		if err != nil {
 			return err
 		}
 		defer uconn.Close()
-		_, err = fmt.Fprintf(uconn, "CONNECT %d\n", *port)
-		if err != nil {
-			return err
-		}
-		var ack uint
-		_, err = fmt.Fscanf(uconn, "OK %d\n", &ack)
-		if err != nil {
-			return err
-		}
 		go func() {
 			io.Copy(ch, uconn)
 		}()
