@@ -41,8 +41,6 @@ const (
 	CollectGarbage                       = 20
 	QuerySubstitutablePathInfo           = 21
 	QueryAllValidPaths                   = 23
-	QueryFailedPaths                     = 24
-	ClearFailedPaths                     = 25
 	QueryPathInfo                        = 26
 	QueryPathFromHashPart                = 29
 	QuerySubstitutablePathInfos          = 30
@@ -97,6 +95,7 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 		if err != nil {
 			return err
 		}
+		fmt.Printf("op: %d\n", op)
 		switch WorkerOp(op) {
 		case Nop:
 		case IsValidPath:
@@ -113,8 +112,6 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 		case CollectGarbage:
 		case QuerySubstitutablePathInfo:
 		case QueryAllValidPaths:
-		case QueryFailedPaths:
-		case ClearFailedPaths:
 		case QueryPathInfo:
 			path, err := readString(conn)
 			if err != nil {
