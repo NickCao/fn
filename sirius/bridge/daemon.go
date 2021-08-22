@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 )
 
@@ -506,7 +507,7 @@ func (d *Daemon) ProcessConn(conn io.ReadWriter) error {
 				if vmagic != NAR_VERSION_MAGIC {
 					return fmt.Errorf("unlikely magic mismatch")
 				}
-				fmt.Println(readArchive(fr, ""))
+				fmt.Println(readArchive(fr, path, ""))
 			}
 			err = writeUInt64(conn, STDERR_LAST)
 			if err != nil {
@@ -527,7 +528,7 @@ const (
 	tpSymlink
 )
 
-func readArchive(conn io.Reader, path string) error {
+func readArchive(conn io.Reader, storePath, path string) error {
 	s1, err := readString(conn)
 	if err != nil {
 		return err
@@ -555,8 +556,10 @@ outer:
 			}
 			switch t {
 			case "regular":
+				fmt.Printf("create regular file %s\n", filepath.Join(storePath, path))
 				ctp = tpRegular
 			case "directory":
+				fmt.Printf("create directory %s\n", filepath.Join(storePath, path))
 				ctp = tpDirectory
 			case "symlink":
 				ctp = tpSymlink
@@ -581,6 +584,7 @@ outer:
 			if err != nil {
 				return err
 			}
+			fmt.Printf("write regular file content %s\n", filepath.Join(storePath, path))
 		case "executable":
 			if ctp != tpRegular {
 				return fmt.Errorf("bad archive")
@@ -596,10 +600,11 @@ outer:
 			if ctp != tpSymlink {
 				return fmt.Errorf("bad archive")
 			}
-			_, err := readString(conn)
+			target, err := readString(conn)
 			if err != nil {
 				return err
 			}
+			fmt.Printf("create symlink %s -> %s\n", filepath.Join(storePath, path), target)
 		case "entry":
 			if ctp != tpDirectory {
 				return fmt.Errorf("bad archive")
@@ -637,7 +642,7 @@ outer:
 					if name == "" {
 						return fmt.Errorf("name missing")
 					}
-					err = readArchive(conn, path+"/"+name)
+					err = readArchive(conn, storePath, filepath.Join(path, name))
 					if err != nil {
 						return err
 					}
