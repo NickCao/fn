@@ -270,7 +270,6 @@ outer:
 		if err != nil {
 			return err
 		}
-		fmt.Printf("s2: %s\n", s2)
 		switch s2 {
 		case ")":
 			break outer
@@ -322,6 +321,14 @@ outer:
 			if marker != "" {
 				return fmt.Errorf("non empty x marker")
 			}
+		case "target":
+			if ctp != tpSymlink {
+				return fmt.Errorf("bad archive")
+			}
+			_, err := readString(conn)
+			if err != nil {
+				return err
+			}
 		case "entry":
 			if ctp != tpDirectory {
 				return fmt.Errorf("bad archive")
@@ -359,18 +366,13 @@ outer:
 					if name == "" {
 						return fmt.Errorf("name missing")
 					}
-					readArchive(conn, path+"/"+name)
+					err = readArchive(conn, path+"/"+name)
+					if err != nil {
+						return err
+					}
 				default:
 					return fmt.Errorf("bad archive")
 				}
-			}
-		case "target":
-			if ctp != tpSymlink {
-				return fmt.Errorf("bad archive")
-			}
-			_, err := readString(conn)
-			if err != nil {
-				return err
 			}
 		default:
 			return fmt.Errorf("bad archive")
@@ -392,12 +394,9 @@ func readString(conn io.Reader) (string, error) {
 		lenPathPadded = lenPath + 8 - (lenPath % 8)
 	}
 	buf := make([]byte, lenPathPadded)
-	n, err := conn.Read(buf)
+	_, err = io.ReadFull(conn, buf)
 	if err != nil {
 		return "", err
-	}
-	if uint64(n) != lenPathPadded {
-		return "", fmt.Errorf("unlikely readstring fail")
 	}
 	return string(buf[:lenPath]), nil
 }
