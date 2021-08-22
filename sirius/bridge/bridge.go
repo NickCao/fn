@@ -13,7 +13,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 	"sync"
 )
 
@@ -135,7 +134,6 @@ func handleChannelRequest(chr ssh.NewChannel, wg *sync.WaitGroup) error {
 		}, firecracker.WithProcessRunner(firecracker.VMCommandBuilder{}.
 			WithBin(*fc).
 			WithSocketPath(base+".ctrl").
-			WithStdout(os.Stdout).
 			Build(ctx)))
 		if err != nil {
 			return err
@@ -153,7 +151,12 @@ func handleChannelRequest(chr ssh.NewChannel, wg *sync.WaitGroup) error {
 			io.Copy(ch, uconn)
 		}()
 		go func() {
-			io.Copy(uconn, ch)
+			r, w := io.Pipe()
+			go func() {
+				err := (&Daemon{}).ProcessConn(r)
+				log.Println(err)
+			}()
+			io.Copy(uconn, io.TeeReader(ch, w))
 		}()
 		if req.WantReply {
 			req.Reply(err == nil, nil)
