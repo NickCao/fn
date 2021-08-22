@@ -26,7 +26,8 @@ func GET_PROTOCOL_MINOR(x uint64) uint64 {
 type WorkerOp uint64
 
 const (
-	IsValidPath                 WorkerOp = 1
+	Nop                         WorkerOp = 0
+	IsValidPath                          = 1
 	HasSubstitutes                       = 3
 	QueryReferrers                       = 6
 	AddToStore                           = 7
@@ -92,12 +93,6 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 		fmt.Printf("set affinity to: %d\n", affinity)
 		// TODO: set affinity
 	}
-	/*
-		err = binary.Read(conn, Endian, &padding)
-		if err != nil {
-			return err
-		}
-	*/
 	fmt.Printf("start handling ops: client version %d %d\n", GET_PROTOCOL_MAJOR(version), GET_PROTOCOL_MINOR(version))
 	var op uint64
 	for {
@@ -107,6 +102,7 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 		}
 		fmt.Printf("get op: %d\n", op)
 		switch WorkerOp(op) {
+		case Nop:
 		case IsValidPath:
 		case HasSubstitutes:
 		case QueryReferrers:
@@ -124,6 +120,11 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 		case QueryFailedPaths:
 		case ClearFailedPaths:
 		case QueryPathInfo:
+			path, err := readString(conn)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("query: %s\n", path)
 		case QueryPathFromHashPart:
 		case QuerySubstitutablePathInfos:
 		case QueryValidPaths:
@@ -149,8 +150,97 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 		case OptimiseStore:
 		case VerifyStore:
 		case BuildDerivation:
+			path, err := readString(conn)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("build derivation: %s\n", path)
+			var nr uint64
+			err = binary.Read(conn, Endian, &nr)
+			if err != nil {
+				return err
+			}
+			for n := uint64(0); n < nr; n++ {
+				name, err := readString(conn)
+				if err != nil {
+					return err
+				}
+				pathS, err := readString(conn)
+				if err != nil {
+					return err
+				}
+				hashAlgo, err := readString(conn)
+				if err != nil {
+					return err
+				}
+				hash, err := readString(conn)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("output: %s %s %s %s\n", name, pathS, hashAlgo, hash)
+			}
+			var numPaths uint64
+			err = binary.Read(conn, Endian, &numPaths)
+			if err != nil {
+				return err
+			}
+			for i := uint64(0); i < numPaths; i++ {
+				path, err := readString(conn)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("input src path: %s\n", path)
+			}
+			platform, err := readString(conn)
+			if err != nil {
+				return err
+			}
+			builder, err := readString(conn)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("platform: %s, builder: %s\n", platform, builder)
+			var numArgs uint64
+			err = binary.Read(conn, Endian, &numArgs)
+			if err != nil {
+				return err
+			}
+			for i := uint64(0); i < numArgs; i++ {
+				arg, err := readString(conn)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("arg: %s\n", arg)
+			}
+			var numEnvs uint64
+			err = binary.Read(conn, Endian, &numEnvs)
+			if err != nil {
+				return err
+			}
+			for i := uint64(0); i < numEnvs; i++ {
+				key, err := readString(conn)
+				if err != nil {
+					return err
+				}
+				value, err := readString(conn)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("env: %s %s\n", key, value)
+			}
+			var buildMode uint64
+			err = binary.Read(conn, Endian, &buildMode)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("build mode: %d\n", buildMode)
 		case AddSignatures:
 		case NarFromPath:
+			path, err := readString(conn)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("dump nar: %s\n", path)
 		case AddToStoreNar:
 		case QueryMissing:
 		case QueryDerivationOutputMap:
