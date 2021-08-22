@@ -100,59 +100,59 @@ func handleChannelRequest(chr ssh.NewChannel, wg *sync.WaitGroup) error {
 			}
 			continue
 		}
-    /*
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		base := "/tmp/" + uuid.NewString()
-		t := true
-		r := "rootfs"
-		var c1024 int64 = 1024
-		var c1 int64 = 1
-		machine, err := firecracker.NewMachine(ctx, firecracker.Config{
-			SocketPath:      base + ".ctrl",
-			LogLevel:        "Info",
-			KernelImagePath: *kernel,
-			KernelArgs:      *kargs,
-			Drives: []models.Drive{{
-				DriveID:      &r,
-				IsReadOnly:   &t,
-				IsRootDevice: &t,
-				PathOnHost:   rootfs,
-			}},
-			VsockDevices: []firecracker.VsockDevice{{
-				ID:   "nix",
-				Path: base + ".vsock",
-				CID:  3,
-			}},
-			MachineCfg: models.MachineConfiguration{
-				HtEnabled:  &t,
-				MemSizeMib: &c1024,
-				VcpuCount:  &c1,
-			},
-			VMID: uuid.NewString(),
-		}, firecracker.WithProcessRunner(firecracker.VMCommandBuilder{}.
-			WithBin(*fc).
-			WithSocketPath(base+".ctrl").
-			Build(ctx)))
-		if err != nil {
-			return err
-		}
-		err = machine.Start(ctx)
-		if err != nil {
-			return err
-		}
-		uconn, err := VSockDial(ctx, base+".vsock", uint32(*port))
-		if err != nil {
-			return err
-		}
-    */
+		/*
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			base := "/tmp/" + uuid.NewString()
+			t := true
+			r := "rootfs"
+			var c1024 int64 = 1024
+			var c1 int64 = 1
+			machine, err := firecracker.NewMachine(ctx, firecracker.Config{
+				SocketPath:      base + ".ctrl",
+				LogLevel:        "Info",
+				KernelImagePath: *kernel,
+				KernelArgs:      *kargs,
+				Drives: []models.Drive{{
+					DriveID:      &r,
+					IsReadOnly:   &t,
+					IsRootDevice: &t,
+					PathOnHost:   rootfs,
+				}},
+				VsockDevices: []firecracker.VsockDevice{{
+					ID:   "nix",
+					Path: base + ".vsock",
+					CID:  3,
+				}},
+				MachineCfg: models.MachineConfiguration{
+					HtEnabled:  &t,
+					MemSizeMib: &c1024,
+					VcpuCount:  &c1,
+				},
+				VMID: uuid.NewString(),
+			}, firecracker.WithProcessRunner(firecracker.VMCommandBuilder{}.
+				WithBin(*fc).
+				WithSocketPath(base+".ctrl").
+				Build(ctx)))
+			if err != nil {
+				return err
+			}
+			err = machine.Start(ctx)
+			if err != nil {
+				return err
+			}
+			uconn, err := VSockDial(ctx, base+".vsock", uint32(*port))
+			if err != nil {
+				return err
+			}
+		*/
 		if req.WantReply {
 			req.Reply(true, nil)
 		}
-    go func() {
-	  err = (&Daemon{}).ProcessConn(ch)
-	  log.Println(err)
-  }()
+		go func() {
+			err = (&Daemon{}).ProcessConn(ch)
+			log.Println(err)
+		}()
 	}
 	return nil
 }
