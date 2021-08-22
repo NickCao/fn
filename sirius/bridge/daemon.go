@@ -66,15 +66,14 @@ type Daemon struct {
 }
 
 func (d *Daemon) ProcessConn(conn io.Reader) error {
-	var magic, version, affinity, padding uint64
-	err := binary.Read(conn, Endian, &magic)
+	magic, err := readUInt64(conn)
 	if err != nil {
 		return err
 	}
 	if magic != WORKER_MAGIC_1 {
 		return fmt.Errorf("protocol mismatch")
 	}
-	err = binary.Read(conn, Endian, &version)
+	version, err := readUInt64(conn)
 	if err != nil {
 		return err
 	}
@@ -82,25 +81,22 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 		return fmt.Errorf("client too old")
 	}
 	if GET_PROTOCOL_MINOR(version) >= 14 {
-		err = binary.Read(conn, Endian, &padding)
+		_, err := readUInt64(conn)
 		if err != nil {
 			return err
 		}
-		err = binary.Read(conn, Endian, &affinity)
+		affinity, err := readUInt64(conn)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("set affinity to: %d\n", affinity)
-		// TODO: set affinity
 	}
 	fmt.Printf("start handling ops: client version %d %d\n", GET_PROTOCOL_MAJOR(version), GET_PROTOCOL_MINOR(version))
-	var op uint64
 	for {
-		err = binary.Read(conn, Endian, &op)
+		op, err := readUInt64(conn)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("get op: %d\n", op)
 		switch WorkerOp(op) {
 		case Nop:
 		case IsValidPath:
@@ -124,27 +120,22 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("query: %s\n", path)
+			fmt.Printf("QueryPathInfo: path %s\n", path)
 		case QueryPathFromHashPart:
 		case QuerySubstitutablePathInfos:
 		case QueryValidPaths:
-			var numPaths uint64
-			err = binary.Read(conn, Endian, &numPaths)
+			paths, err := readStrings(conn)
 			if err != nil {
 				return err
 			}
-			for i := uint64(0); i < numPaths; i++ {
-				path, err := readString(conn)
+			var substitute uint64 = 0
+			if GET_PROTOCOL_MINOR(version) >= 27 {
+				substitute, err = readUInt64(conn)
 				if err != nil {
 					return err
 				}
-				fmt.Printf("query path: %s\n", path)
 			}
-			var substitute uint64 = 0
-			if GET_PROTOCOL_MINOR(version) >= 27 {
-				err = binary.Read(conn, Endian, &substitute)
-				fmt.Printf("whether to substitute: %d\n", substitute)
-			}
+			fmt.Printf("QueryValidPaths: paths: %s, substitute: %d\n", paths, substitute)
 		case QuerySubstitutablePaths:
 		case QueryValidDerivers:
 		case OptimiseStore:
@@ -240,7 +231,7 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("dump nar: %s\n", path)
+			fmt.Printf("NarFromPath: %s\n", path)
 		case AddToStoreNar:
 		case QueryMissing:
 		case QueryDerivationOutputMap:
@@ -399,7 +390,6 @@ outer:
 			if err != nil {
 				return err
 			}
-			fmt.Printf("content at: %s\n", path)
 		case "executable":
 			if ctp != tpRegular {
 				return fmt.Errorf("bad archive")
@@ -471,24 +461,47 @@ outer:
 	return nil
 }
 
+func roundPadding(n uint64) uint64 {
+	rem := n % 8
+	if rem == 0 {
+		return n
+	}
+	return n - rem + 8
+}
+
+func readUInt64(conn io.Reader) (uint64, error) {
+	var num uint64
+	err := binary.Read(conn, Endian, &num)
+	return num, err
+}
+
 func readString(conn io.Reader) (string, error) {
-	var lenPath uint64
-	err := binary.Read(conn, Endian, &lenPath)
+	lenPath, err := readUInt64(conn)
 	if err != nil {
 		return "", err
 	}
-	var lenPathPadded uint64
-	if lenPath%8 == 0 {
-		lenPathPadded = lenPath
-	} else {
-		lenPathPadded = lenPath + 8 - (lenPath % 8)
-	}
-	buf := make([]byte, lenPathPadded)
+	buf := make([]byte, roundPadding(lenPath))
 	_, err = io.ReadFull(conn, buf)
 	if err != nil {
 		return "", err
 	}
 	return string(buf[:lenPath]), nil
+}
+
+func readStrings(conn io.Reader) ([]string, error) {
+	n, err := readUInt64(conn)
+	if err != nil {
+		return nil, err
+	}
+	ss := make([]string, n)
+	for i := uint64(0); i < n; i++ {
+		s, err := readString(conn)
+		if err != nil {
+			return nil, err
+		}
+		ss[i] = s
+	}
+	return ss, nil
 }
 
 type FramedReader struct {
