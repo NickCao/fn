@@ -14,6 +14,8 @@ const WORKER_MAGIC_1 uint64 = 0x6e697863
 const WORKER_MAGIC_2 uint64 = 0x6478696f
 const PROTOCOL_VERSION uint64 = (1<<8 | 32)
 const NAR_VERSION_MAGIC = "nix-archive-1"
+// TODO: properly handle stderr
+const STDERR_LAST uint64 =  0x616c7473
 
 func GET_PROTOCOL_MAJOR(x uint64) uint64 {
 	return x & 0xff00
@@ -22,6 +24,24 @@ func GET_PROTOCOL_MAJOR(x uint64) uint64 {
 func GET_PROTOCOL_MINOR(x uint64) uint64 {
 	return x & 0x00ff
 }
+
+type BuildStatus uint64
+
+const (
+        Built BuildStatus = iota
+        Substituted
+        AlreadyValid
+        PermanentFailure
+        InputRejected
+        OutputRejected
+        TransientFailure // possibly transient
+        CachedFailure // no longer used
+        TimedOut
+        MiscFailure
+        DependencyFailed
+        LogLimitExceeded
+        NotDeterministic
+)
 
 type WorkerOp uint64
 
@@ -63,7 +83,7 @@ const (
 type Daemon struct {
 }
 
-func (d *Daemon) ProcessConn(conn io.Reader) error {
+func (d *Daemon) ProcessConn(conn io.ReadWriter) error {
 	magic, err := readUInt64(conn)
 	if err != nil {
 		return err
@@ -71,6 +91,12 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 	if magic != WORKER_MAGIC_1 {
 		return fmt.Errorf("protocol mismatch")
 	}
+
+  err = writeUInt64(conn, WORKER_MAGIC_2)
+  if err != nil { return err }
+  err = writeUInt64(conn, PROTOCOL_VERSION)
+  if err != nil { return err }
+  
 	version, err := readUInt64(conn)
 	if err != nil {
 		return err
@@ -78,18 +104,28 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 	if version < 0x10a {
 		return fmt.Errorf("client too old")
 	}
+
 	if GET_PROTOCOL_MINOR(version) >= 14 {
-		_, err := readUInt64(conn)
+		doAff, err := readUInt64(conn)
 		if err != nil {
 			return err
 		}
+    if doAff == 0 {
 		affinity, err := readUInt64(conn)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("set affinity to: %d\n", affinity)
+  }
 	}
 	fmt.Printf("start handling ops: client version %d %d\n", GET_PROTOCOL_MAJOR(version), GET_PROTOCOL_MINOR(version))
+
+  err = writeUInt64(conn, STDERR_LAST)
+  if err != nil {
+    return err
+  }
+  //f, _ := os.OpenFile("/tmp/proto" ,os.O_RDWR|os.O_CREATE, 0755)
+  //go io.Copy(conn, io.TeeReader(backend, f))
 	for {
 		op, err := readUInt64(conn)
 		if err != nil {
@@ -99,27 +135,67 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 		switch WorkerOp(op) {
 		case Nop:
 		case IsValidPath:
+			return fmt.Errorf("not implemented")
 		case HasSubstitutes:
+			return fmt.Errorf("not implemented")
 		case QueryReferrers:
+			return fmt.Errorf("not implemented")
 		case AddToStore:
+			return fmt.Errorf("not implemented")
 		case BuildPaths:
+			return fmt.Errorf("not implemented")
 		case EnsurePath:
+			return fmt.Errorf("not implemented")
 		case AddTempRoot:
+			return fmt.Errorf("not implemented")
 		case AddIndirectRoot:
+			return fmt.Errorf("not implemented")
 		case SyncWithGC:
+			return fmt.Errorf("not implemented")
 		case FindRoots:
+			return fmt.Errorf("not implemented")
 		case SetOptions:
+			return fmt.Errorf("not implemented")
 		case CollectGarbage:
+			return fmt.Errorf("not implemented")
 		case QuerySubstitutablePathInfo:
+			return fmt.Errorf("not implemented")
 		case QueryAllValidPaths:
+			return fmt.Errorf("not implemented")
 		case QueryPathInfo:
+      if GET_PROTOCOL_MINOR(version) < 17 {
+        return fmt.Errorf("unsupported client version")
+      }
 			path, err := readString(conn)
 			if err != nil {
 				return err
 			}
 			fmt.Printf("QueryPathInfo: path %s\n", path)
+      err = writeUInt64(conn, STDERR_LAST)
+      if err != nil { return err }
+      // TODO: fake that the path exists
+      err = writeUInt64(conn, 1)
+      if err != nil { return err }
+      err = writeString(conn, "") // deriver
+      if err != nil { return err }
+      err = writeString(conn, "0sg9f58l1jj88w6pdrfdpj5x9b1zrwszk84j81zvby36q9whhhqa") // narhash
+      if err != nil { return err }
+      err = writeUInt64(conn, 0) // TODO: refs
+      if err != nil { return err }
+      err = writeUInt64(conn, 0) // regtime
+      if err != nil { return err }
+      err = writeUInt64(conn, 120) // nar size
+      if err != nil { return err }
+      err = writeUInt64(conn, 0) // ultimate
+      if err != nil { return err }
+      err = writeUInt64(conn, 0) // TODO: sigs
+      if err != nil { return err }
+      err = writeString(conn, "") // TODO: ca
+      if err != nil { return err }
 		case QueryPathFromHashPart:
+			return fmt.Errorf("not implemented")
 		case QuerySubstitutablePathInfos:
+			return fmt.Errorf("not implemented")
 		case QueryValidPaths:
 			paths, err := readStrings(conn)
 			if err != nil {
@@ -133,10 +209,23 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 				}
 			}
 			fmt.Printf("QueryValidPaths: paths: %s, substitute: %d\n", paths, substitute)
+      err = writeUInt64(conn, STDERR_LAST)
+      if err != nil {
+        return err
+      }
+      // TODO: impl path query
+      err = writeUInt64(conn, 0)
+      if err != nil {
+        return err
+      }
 		case QuerySubstitutablePaths:
+			return fmt.Errorf("not implemented")
 		case QueryValidDerivers:
+			return fmt.Errorf("not implemented")
 		case OptimiseStore:
+			return fmt.Errorf("not implemented")
 		case VerifyStore:
+			return fmt.Errorf("not implemented")
 		case BuildDerivation:
 			path, err := readString(conn)
 			if err != nil {
@@ -222,18 +311,62 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 				return err
 			}
 			fmt.Printf("build mode: %d\n", buildMode)
+      err = writeUInt64(conn, STDERR_LAST)
+      if err != nil { return err }
+      err = writeUInt64(conn,uint64(Built))
+      if err != nil { return err }
+      err = writeString(conn, "built")
+      if err != nil { return err }
+      if GET_PROTOCOL_MINOR(version) >= 29 {
+         var timesBuilt, isNonDeterministic, startTime, stopTime uint64
+         err = writeUInt64(conn, timesBuilt)
+         if err != nil { return err }
+         err = writeUInt64(conn, isNonDeterministic)
+         if err != nil { return err }
+         err = writeUInt64(conn, startTime)
+         if err != nil { return err }
+         err = writeUInt64(conn, stopTime)
+         if err != nil { return err }
+      }
+      if GET_PROTOCOL_MINOR(version) >= 28 {
+        // TODO: write drv outputs map
+        err = writeUInt64(conn, 0)
+        if err != nil { return err }
+      }
 		case AddSignatures:
+			return fmt.Errorf("not implemented")
 		case NarFromPath:
 			path, err := readString(conn)
 			if err != nil {
 				return err
 			}
 			fmt.Printf("NarFromPath: %s\n", path)
+      err = writeUInt64(conn, STDERR_LAST)
+      if err != nil { return err }
+      err = writeString(conn, NAR_VERSION_MAGIC)
+      if err != nil { return err }
+      err = writeString(conn, "(")
+      if err != nil { return err }
+      err = writeString(conn, "type")
+      if err != nil { return err }
+      err = writeString(conn, "regular")
+      if err != nil { return err }
+      err = writeString(conn, "contents")
+      if err != nil { return err }
+      err = writeString(conn, "hello")
+      if err != nil { return err }
+      err = writeString(conn, ")")
+      if err != nil { return err }
 		case AddToStoreNar:
+			return fmt.Errorf("not implemented")
 		case QueryMissing:
+			return fmt.Errorf("not implemented")
 		case QueryDerivationOutputMap:
+			return fmt.Errorf("not implemented")
 		case RegisterDrvOutput:
+			return fmt.Errorf("not implemented")
 		case QueryRealisation:
+			return fmt.Errorf("not implemented")
 		case AddMultipleToStore:
 			repair, err := readUInt64(conn)
 			if err != nil {
@@ -318,6 +451,10 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 				}
 				fmt.Println(readArchive(fr, ""))
 			}
+      err = writeUInt64(conn, STDERR_LAST)
+      if err != nil {
+        return err
+      }
 		default:
 			return fmt.Errorf("invalid op")
 		}
@@ -470,6 +607,23 @@ func readUInt64(conn io.Reader) (uint64, error) {
 	var num uint64
 	err := binary.Read(conn, Endian, &num)
 	return num, err
+}
+
+func writeUInt64(conn io.Writer, num uint64) error {
+  err := binary.Write(conn, Endian, &num)
+  return err
+}
+
+func writeString(conn io.Writer, s string) error {
+  buf := []byte(s)
+  sLen := uint64(len(buf))
+  buf = append(buf, make([]byte, roundPadding(sLen) -sLen)...)
+  err := writeUInt64(conn, sLen)
+  if err != nil {
+    return err
+  }
+  _, err = conn.Write(buf)
+  return err
 }
 
 func readString(conn io.Reader) (string, error) {

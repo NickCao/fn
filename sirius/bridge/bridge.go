@@ -2,15 +2,14 @@ package main
 
 import (
 	"bytes"
-	"context"
+	// "context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"flag"
-	"github.com/firecracker-microvm/firecracker-go-sdk"
-	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
-	"github.com/google/uuid"
+	// "github.com/firecracker-microvm/firecracker-go-sdk"
+	// "github.com/firecracker-microvm/firecracker-go-sdk/client/models"
+	// "github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
-	"io"
 	"log"
 	"net"
 	"sync"
@@ -101,7 +100,7 @@ func handleChannelRequest(chr ssh.NewChannel, wg *sync.WaitGroup) error {
 			}
 			continue
 		}
-
+    /*
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		base := "/tmp/" + uuid.NewString()
@@ -146,21 +145,14 @@ func handleChannelRequest(chr ssh.NewChannel, wg *sync.WaitGroup) error {
 		if err != nil {
 			return err
 		}
-		defer uconn.Close()
-		go func() {
-			io.Copy(ch, uconn)
-		}()
-		go func() {
-			r, w := io.Pipe()
-			go func() {
-				err := (&Daemon{}).ProcessConn(r)
-				log.Println(err)
-			}()
-			io.Copy(uconn, io.TeeReader(ch, w))
-		}()
+    */
 		if req.WantReply {
-			req.Reply(err == nil, nil)
+			req.Reply(true, nil)
 		}
+    go func() {
+	  err = (&Daemon{}).ProcessConn(ch)
+	  log.Println(err)
+  }()
 	}
 	return nil
 }
