@@ -235,15 +235,15 @@ func (d *Daemon) ProcessConn(conn io.Reader) error {
 		case RegisterDrvOutput:
 		case QueryRealisation:
 		case AddMultipleToStore:
-			var repair, dontCheckSigs uint64
-			err = binary.Read(conn, Endian, &repair)
+			repair, err := readUInt64(conn)
 			if err != nil {
 				return err
 			}
-			err = binary.Read(conn, Endian, &dontCheckSigs)
+			dontCheckSigs, err := readUInt64(conn)
 			if err != nil {
 				return err
 			}
+			fmt.Printf("AddMultipleToStore: repair: %d, dontCheckSigs %d\n", repair, dontCheckSigs)
 			fr := NewFramedReader(conn)
 			var numPaths uint64
 			err = binary.Read(fr, Endian, &numPaths)
