@@ -737,14 +737,10 @@ func (f *FramedReader) Read(p []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		n, err := f.buf.Write(buf)
+		_, err = f.buf.Write(buf)
 		if err != nil {
 			return 0, err
 		}
-		if uint64(n) != size {
-			return 0, fmt.Errorf("unlikely write frame fail")
-		}
-		//fmt.Printf("read frame of size: %d\n", size)
 	}
 	return f.buf.Read(p)
 }
