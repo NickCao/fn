@@ -507,7 +507,10 @@ func (d *Daemon) ProcessConn(conn io.ReadWriter) error {
 				if vmagic != NAR_VERSION_MAGIC {
 					return fmt.Errorf("unlikely magic mismatch")
 				}
-				fmt.Println(readArchive(fr, path, ""))
+				err = readArchive(fr, path, "")
+				if err != nil {
+					return err
+				}
 			}
 			err = writeUInt64(conn, STDERR_LAST)
 			if err != nil {
