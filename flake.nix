@@ -13,7 +13,7 @@
       (system:
         let pkgs = import nixpkgs { inherit system; overlays = [ self.overlay rust-overlay.overlay ]; }; in
         rec {
-          packages = { inherit (pkgs) meow woff bark quark sirius; };
+          packages = { inherit (pkgs) meow woff bark quark sirius serve; };
           checks = packages;
           devShell = pkgs.mkShell { inputsFrom = builtins.attrValues packages; };
         }
@@ -56,7 +56,12 @@
           sirius = final.buildGoModule {
             name = "sirius";
             src = ./sirius;
-            vendorSha256 = "sha256-ppouYHXyJe1FSzS7D22sDA3Z8101ROvaWy0ymfoJ23s=";
+            vendorSha256 = "sha256-+/dltb04n/s5E6lkH2HlllQu5rihQQScBHZSDWwLyxY=";
+          };
+          serve = final.buildGoModule {
+            name = "serve";
+            src = ./serve;
+            vendorSha256 = null;
           };
         };
     };

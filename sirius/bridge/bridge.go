@@ -2,25 +2,18 @@ package main
 
 import (
 	"bytes"
-	// "context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"flag"
-	// "github.com/firecracker-microvm/firecracker-go-sdk"
-	// "github.com/firecracker-microvm/firecracker-go-sdk/client/models"
-	// "github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
+	"io"
 	"log"
 	"net"
 	"sync"
 )
 
-var port = flag.Uint("p", 1024, "port of vsock to connect")
 var addr = flag.String("l", "127.0.0.1:2022", "address to listen on")
-var kernel = flag.String("k", "", "path to kernel image")
-var kargs = flag.String("a", "", "kernel args")
-var rootfs = flag.String("r", "", "path to rootfs")
-var fc = flag.String("f", "", "path to firecracker binary")
+var path = flag.String("p", "", "path to socket")
 
 func main() {
 	flag.Parse()
@@ -100,59 +93,18 @@ func handleChannelRequest(chr ssh.NewChannel, wg *sync.WaitGroup) error {
 			}
 			continue
 		}
-		/*
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			base := "/tmp/" + uuid.NewString()
-			t := true
-			r := "rootfs"
-			var c1024 int64 = 1024
-			var c1 int64 = 1
-			machine, err := firecracker.NewMachine(ctx, firecracker.Config{
-				SocketPath:      base + ".ctrl",
-				LogLevel:        "Info",
-				KernelImagePath: *kernel,
-				KernelArgs:      *kargs,
-				Drives: []models.Drive{{
-					DriveID:      &r,
-					IsReadOnly:   &t,
-					IsRootDevice: &t,
-					PathOnHost:   rootfs,
-				}},
-				VsockDevices: []firecracker.VsockDevice{{
-					ID:   "nix",
-					Path: base + ".vsock",
-					CID:  3,
-				}},
-				MachineCfg: models.MachineConfiguration{
-					HtEnabled:  &t,
-					MemSizeMib: &c1024,
-					VcpuCount:  &c1,
-				},
-				VMID: uuid.NewString(),
-			}, firecracker.WithProcessRunner(firecracker.VMCommandBuilder{}.
-				WithBin(*fc).
-				WithSocketPath(base+".ctrl").
-				Build(ctx)))
-			if err != nil {
-				return err
-			}
-			err = machine.Start(ctx)
-			if err != nil {
-				return err
-			}
-			uconn, err := VSockDial(ctx, base+".vsock", uint32(*port))
-			if err != nil {
-				return err
-			}
-		*/
+
+		uconn, err := net.Dial("unix", *path)
 		if req.WantReply {
-			req.Reply(true, nil)
+			req.Reply(err == nil, nil)
 		}
-		go func() {
-			err = (&Daemon{}).ProcessConn(ch)
-			log.Println(err)
-		}()
+		if err != nil {
+			return err
+		}
+
+		go func() { io.Copy(uconn, ch) }()
+		go func() { io.Copy(ch, uconn) }()
 	}
+
 	return nil
 }
