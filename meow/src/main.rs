@@ -30,7 +30,7 @@ async fn paste(
         .get(header::CONTENT_LENGTH)
         .and_then(|x| x.to_str().ok())
         .and_then(|x| x.parse().ok());
-    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx, rx) = tokio::sync::mpsc::channel(100);
     rt::spawn(async move {
         while let Some(chunk) = body.next().await {
             match chunk {
