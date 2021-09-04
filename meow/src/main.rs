@@ -5,7 +5,7 @@ use rusoto_core::{credential::StaticProvider, request::HttpClient, ByteStream, R
 use rusoto_s3::{GetObjectRequest, PutObjectRequest, S3Client, S3};
 use std::env;
 use std::io::{Error, ErrorKind};
-use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_stream::wrappers::ReceiverStream;
 use url::Url;
 
 mod bip39;
@@ -36,14 +36,13 @@ async fn paste(
             match chunk {
                 Ok(bytes) => tx.send(Ok(bytes)),
                 Err(e) => tx.send(Err(Error::new(ErrorKind::Other, e))),
-            }
-            .unwrap()
+            }.await.unwrap()
         }
     });
     let req = PutObjectRequest {
         bucket: config.bucket.clone(),
         key: key.clone(),
-        body: Some(ByteStream::new(UnboundedReceiverStream::new(rx))),
+        body: Some(ByteStream::new(ReceiverStream::new(rx))),
         content_length,
         ..PutObjectRequest::default()
     };
