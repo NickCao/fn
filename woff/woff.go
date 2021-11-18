@@ -39,7 +39,6 @@ func main() {
 		params := &stripe.CheckoutSessionParams{
 			PaymentMethodTypes: stripe.StringSlice([]string{"card", "alipay"}),
 			Mode:               stripe.String(string(stripe.CheckoutSessionModePayment)),
-			CustomerEmail:      stripe.String("user@example.com"),
 			LineItems: []*stripe.CheckoutSessionLineItemParams{{
 				PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
 					Currency:    stripe.String("cny"),
