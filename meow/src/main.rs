@@ -103,7 +103,7 @@ async fn _main() -> Result<()> {
     let client = S3Client::new_with(hclient, creds, region);
     HttpServer::new(move || {
         App::new()
-            .app_data(AppConfig {
+            .data(AppConfig {
                 base_url: base_url.clone(),
                 key_size: 3,
                 client: client.clone(),

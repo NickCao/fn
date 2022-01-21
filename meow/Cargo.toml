@@ -1,3 +1,5 @@
+cargo-features = ["strip"]
+
 [package]
 name = "meow"
 version = "0.1.0"
@@ -8,13 +10,13 @@ lto = true
 strip = true
 
 [dependencies]
-rand = "0.8.4"
-lazy_static = "1.4.0"
-actix-web = "4.0.0-beta.20"
-rusoto_core = "0.47.0"
-rusoto_s3 = "0.47.0"
-futures = "0.3.19"
-tokio = "1.15.0"
-tokio-stream = "0.1.8"
-anyhow = "1.0.52"
-url = "2.2.2"
+rand = "0.8.3"
+lazy_static = "1"
+actix-web = "4.0.0-beta.5"
+rusoto_core = "0.46.0"
+rusoto_s3 = "0.46.0"
+futures = "0.3.14"
+tokio = "1"
+tokio-stream = "0.1.5"
+anyhow = "1"
+url = "2"
