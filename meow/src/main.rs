@@ -16,7 +16,7 @@ async fn index(config: web::Data<AppConfig>) -> impl Responder {
 async fn paste(body: web::Bytes, config: web::Data<AppConfig>) -> Result<impl Responder> {
     let key = crate::bip39::mnemonic(config.key_size);
     let mut path = std::path::PathBuf::from(&config.data_dir);
-    path.push(crate::bip39::mnemonic(config.key_size));
+    path.push(&key);
     tokio::fs::write(path, body).await?;
     Ok(format!(
         "{}\n",
