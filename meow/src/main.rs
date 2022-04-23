@@ -48,6 +48,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(args.clone()))
+            .app_data(web::PayloadConfig::new(20 * 1024 * 1024))
             .service(index)
             .service(paste)
             .service(actix_files::Files::new("/", &args.data_dir))
