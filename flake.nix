@@ -8,7 +8,7 @@
       (system:
         let pkgs = import nixpkgs { inherit system; overlays = [ self.overlays.default ]; }; in
         rec {
-          packages = { inherit (pkgs) meow woff bark quark sirius serve; };
+          packages = { inherit (pkgs) meow quark sirius serve; };
           checks = packages;
           devShells.default = pkgs.mkShell { inputsFrom = builtins.attrValues packages; };
         }
@@ -23,20 +23,6 @@
             buildInputs = [ final.openssl ];
             cargoLock = {
               lockFile = ./meow/Cargo.lock;
-            };
-          };
-          woff = final.buildGoModule {
-            name = "woff";
-            src = ./woff;
-            vendorSha256 = "sha256-JndbBs8D1kMvOnHPRLk2nmVd9KNH964BGcDUu+49anU=";
-          };
-          bark = final.rustPlatform.buildRustPackage {
-            name = "bark";
-            src = ./bark;
-            nativeBuildInputs = [ final.pkg-config ];
-            buildInputs = [ final.openssl ];
-            cargoLock = {
-              lockFile = ./bark/Cargo.lock;
             };
           };
           quark = final.buildGoModule {
