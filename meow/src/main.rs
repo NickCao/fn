@@ -1,23 +1,51 @@
-use actix_web::{get, post, web, App, HttpServer, Responder, Result};
 use argh::FromArgs;
+use axum::{
+    extract::BodyStream,
+    extract::State,
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, get_service, post},
+    Router,
+};
+use futures::{StreamExt, TryStreamExt};
+use std::net::SocketAddr;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
+use tower_http::services::ServeDir;
 use url::Url;
 
 mod bip39;
 
-#[get("/")]
-async fn index(config: web::Data<AppConfig>) -> impl Responder {
+async fn error(_: std::io::Error) -> (StatusCode, &'static str) {
+    (StatusCode::INTERNAL_SERVER_ERROR, "failed to read paste")
+}
+
+async fn index(State(config): State<AppConfig>) -> impl IntoResponse {
     format!(
         "meow - paste bin\nusage: curl --data-binary @<file> {}\n",
         config.base_url
     )
 }
 
-#[post("/")]
-async fn paste(body: web::Bytes, config: web::Data<AppConfig>) -> Result<impl Responder> {
+async fn paste(
+    State(config): State<AppConfig>,
+    body: BodyStream,
+) -> Result<String, (StatusCode, &'static str)> {
     let key = crate::bip39::mnemonic(config.key_size);
     let mut path = std::path::PathBuf::from(&config.data_dir);
     path.push(&key);
-    tokio::fs::write(path, body).await?;
+    let mut file = tokio::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(path)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create file"))?;
+    let mut body = body
+        .map(|item| item.map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err)))
+        .into_async_read()
+        .compat();
+    tokio::io::copy_buf(&mut body, &mut file)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to write to file"))?;
     Ok(format!(
         "{}\n",
         config.base_url.join(&key).unwrap().to_string()
@@ -28,8 +56,8 @@ async fn paste(body: web::Bytes, config: web::Data<AppConfig>) -> Result<impl Re
 /// paste bin
 struct AppConfig {
     /// address to listen on (default: 127.0.0.1:3000)
-    #[argh(option, short = 'l', default = "String::from(\"127.0.0.1:3000\")")]
-    listen: String,
+    #[argh(option, short = 'l', default = "\"127.0.0.1:3000\".parse().unwrap()")]
+    listen: SocketAddr,
     /// base url
     #[argh(option, short = 'b')]
     base_url: Url,
@@ -41,19 +69,19 @@ struct AppConfig {
     data_dir: String,
 }
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: AppConfig = argh::from_env();
-    let listen = args.listen.clone();
-    HttpServer::new(move || {
-        App::new()
-            .app_data(web::Data::new(args.clone()))
-            .app_data(web::PayloadConfig::new(20 * 1024 * 1024))
-            .service(index)
-            .service(paste)
-            .service(actix_files::Files::new("/", &args.data_dir))
-    })
-    .bind(listen)?
-    .run()
-    .await
+
+    let app = Router::with_state(args.clone())
+        .layer(tower_http::limit::RequestBodyLimitLayer::new(
+            20 * 1024 * 1024, // limit request body to 20M
+        ))
+        .route("/", get(index))
+        .route("/", post(paste))
+        .fallback_service(get_service(ServeDir::new(&args.data_dir)).handle_error(error));
+
+    Ok(axum::Server::bind(&args.listen)
+        .serve(app.into_make_service())
+        .await?)
 }
