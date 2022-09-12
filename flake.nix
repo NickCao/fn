@@ -19,8 +19,6 @@
           meow = final.rustPlatform.buildRustPackage {
             name = "meow";
             src = ./meow;
-            nativeBuildInputs = [ final.pkg-config ];
-            buildInputs = [ final.openssl ];
             cargoLock = {
               lockFile = ./meow/Cargo.lock;
             };
