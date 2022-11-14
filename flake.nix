@@ -8,7 +8,7 @@
       (system:
         let pkgs = import nixpkgs { inherit system; overlays = [ self.overlays.default ]; }; in
         rec {
-          packages = { inherit (pkgs) meow quark sirius serve; };
+          packages = { inherit (pkgs) meow quark sirius; };
           checks = packages;
           devShells.default = pkgs.mkShell { inputsFrom = builtins.attrValues packages; };
         }
@@ -32,11 +32,6 @@
             name = "sirius";
             src = ./sirius;
             vendorSha256 = "sha256-+/dltb04n/s5E6lkH2HlllQu5rihQQScBHZSDWwLyxY=";
-          };
-          serve = final.buildGoModule {
-            name = "serve";
-            src = ./serve;
-            vendorSha256 = null;
           };
         };
     };
