@@ -7,7 +7,7 @@ edition = "2018"
 lto = true
 
 [dependencies]
-axum = "0.6.0-rc.4"
+axum = "0.6.0-rc.5"
 tower-http = { version = "*", features = [ "fs", "limit" ] }
 rand = "*"
 futures = "*"

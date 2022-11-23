@@ -73,13 +73,14 @@ struct AppConfig {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: AppConfig = argh::from_env();
 
-    let app = Router::with_state(args.clone())
+    let app = Router::new()
         .layer(tower_http::limit::RequestBodyLimitLayer::new(
             20 * 1024 * 1024, // limit request body to 20M
         ))
         .route("/", get(index))
         .route("/", post(paste))
-        .fallback_service(get_service(ServeDir::new(&args.data_dir)).handle_error(error));
+        .fallback_service(get_service(ServeDir::new(&args.data_dir)).handle_error(error))
+        .with_state(args.clone());
 
     Ok(axum::Server::bind(&args.listen)
         .serve(app.into_make_service())
