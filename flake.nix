@@ -8,26 +8,20 @@
       (system:
         let pkgs = import nixpkgs { inherit system; overlays = [ self.overlays.default ]; }; in
         rec {
-          packages = { inherit (pkgs) meow sirius; };
+          packages = { inherit (pkgs) meow; };
           checks = packages;
           devShells.default = pkgs.mkShell { inputsFrom = builtins.attrValues packages; };
         }
       ) //
     {
-      overlays.default = final: prev:
-        {
-          meow = final.rustPlatform.buildRustPackage {
-            name = "meow";
-            src = ./meow;
-            cargoLock = {
-              lockFile = ./meow/Cargo.lock;
-            };
-          };
-          sirius = final.buildGoModule {
-            name = "sirius";
-            src = ./sirius;
-            vendorSha256 = "sha256-+/dltb04n/s5E6lkH2HlllQu5rihQQScBHZSDWwLyxY=";
+      overlays.default = final: prev: {
+        meow = final.rustPlatform.buildRustPackage {
+          name = "meow";
+          src = ./meow;
+          cargoLock = {
+            lockFile = ./meow/Cargo.lock;
           };
         };
+      };
     };
 }
