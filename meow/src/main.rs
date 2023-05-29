@@ -15,10 +15,6 @@ use url::Url;
 
 mod bip39;
 
-async fn error(_: std::io::Error) -> (StatusCode, &'static str) {
-    (StatusCode::INTERNAL_SERVER_ERROR, "failed to read paste")
-}
-
 async fn index(State(config): State<AppConfig>) -> impl IntoResponse {
     format!(
         "meow - paste bin\nusage: curl --data-binary @<file> {}\n",
@@ -79,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))
         .route("/", get(index))
         .route("/", post(paste))
-        .fallback_service(get_service(ServeDir::new(&args.data_dir)).handle_error(error))
+        .fallback_service(get_service(ServeDir::new(&args.data_dir)))
         .with_state(args.clone());
 
     Ok(axum::Server::bind(&args.listen)
