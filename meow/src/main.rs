@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .fallback_service(get_service(ServeDir::new(&args.data_dir)))
         .with_state(args.clone());
 
-    let listener = tokio::net::TcpListener::bind(&args.listen).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(&args.listen).await?;
 
     Ok(axum::serve(listener, app.into_make_service()).await?)
 }
