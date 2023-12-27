@@ -1,6 +1,6 @@
 use argh::FromArgs;
 use axum::{
-    extract::BodyStream,
+    body::Body,
     extract::State,
     http::StatusCode,
     response::IntoResponse,
@@ -24,7 +24,7 @@ async fn index(State(config): State<AppConfig>) -> impl IntoResponse {
 
 async fn paste(
     State(config): State<AppConfig>,
-    body: BodyStream,
+    body: Body,
 ) -> Result<String, (StatusCode, &'static str)> {
     let key = crate::bip39::mnemonic(config.key_size);
     let mut path = std::path::PathBuf::from(&config.data_dir);
@@ -36,6 +36,7 @@ async fn paste(
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create file"))?;
     let mut body = body
+        .into_data_stream()
         .map(|item| item.map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err)))
         .into_async_read()
         .compat();
@@ -78,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .fallback_service(get_service(ServeDir::new(&args.data_dir)))
         .with_state(args.clone());
 
-    Ok(axum::Server::bind(&args.listen)
-        .serve(app.into_make_service())
-        .await?)
+    let listener = tokio::net::TcpListener::bind(&args.listen).await.unwrap();
+
+    Ok(axum::serve(listener, app.into_make_service()).await?)
 }
